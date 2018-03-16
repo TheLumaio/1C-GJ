@@ -251,6 +251,7 @@ void game_snake()
                 DrawRectangle(100+i*20, 100+j*20, 15, 15, c);
             }
         }
+        DrawText(FormatText("Score: %d", score), 150, 475, 40, GREEN);
     } else {
         DrawText("You died", 100, 150, 40, RED);
         DrawText(FormatText("Score: %d", score), 100, 200, 40, RED);
