@@ -5,7 +5,7 @@ CFLAGS = --std=c11 -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-unus
 NAME = 1c
 OUT =
 
-LDFLAGS = -Wl,-allow-multiple-definition -static-libgcc
+LDFLAGS = -Wl,-allow-multiple-definition -static -static-libgcc
 LIBS = 
 CC = 
 ifeq ($(OS),Windows_NT)

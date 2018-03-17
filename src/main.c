@@ -7,6 +7,7 @@
 #include <raymath.h>
 
 
+
 #define GAME_LIST      -1
 #define GAME_ASTEROIDS  0
 #define GAME_SNAKE      1
