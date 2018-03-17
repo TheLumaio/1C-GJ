@@ -19,6 +19,7 @@
 static Model cabinet_model;
 static Model cabinet_joystick;
 static Model cabinet_screen;
+static Camera camera;
 
 static RenderTexture2D cabinet_target;
 static RenderTexture2D cabinet_buffer;
@@ -32,18 +33,6 @@ bool check_collide(float x1, float y1, float w1, float h1, float x2, float y2, f
     float dy = fabs((y1+h1/2.f) - (y2+h2/2.f));
     if ((dx <= (w1/2.f + w2/2.f)) && ((dy <= (h1/2.f + h2/2.f)))) c = true;
     return c;
-}
-
-void normalize(float* x, float* y)
-{
-    float l = sqrtf((*x)*(*x) + (*y)*(*y)); // oh god
-    *x = (*x)/l;
-    *y = (*y)/l;
-}
-
-float dot(float x1, float y1, float x2, float y2)
-{
-    return x1*x2+y1*y2;
 }
 
 void game_list()
@@ -101,11 +90,11 @@ void game_snake()
         tail_x = 7;
         tail_y = 8;
         direction = 'e';
-        food_on_board = 0;
         score = 0;
         grow = 0;
         elapsed = 0;
         dead = false;
+        need_update = false;
         
         for (int i = 0; i < 16; i++)
             for (int j = 0; j < 16; j++)
@@ -504,7 +493,7 @@ int main(int argc, char** argv)
     cabinet_buffer = LoadRenderTexture(512, 512);
     SetTextureFilter(cabinet_buffer.texture, FILTER_POINT);
     
-    Camera camera = (Camera){{3.f, 3.6f, 3.f}, {0.f,3.f, 0.f}, {0.f, 1.f, 0.f}, 90.f};
+    camera = (Camera){{3.f, 3.6f, 3.f}, {0.f,3.f, 0.f}, {0.f, 1.f, 0.f}, 90.f};
     SetCameraMode(camera, CAMERA_FIRST_PERSON);
     
     while (!WindowShouldClose())
