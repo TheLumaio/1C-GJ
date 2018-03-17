@@ -273,14 +273,11 @@ void game_snake()
         DrawText("R to restart", 100, 250, 40, GREEN);
         DrawText("Q to exit", 100, 300, 40, GREEN);
     }
-    // DrawText("PLAYING SNAKE", 50, 150, 40, (Color){0, 255, 255, 255});
 }
 
 void game_breakout()
 {
     static bool breakout_initalized = false;
-    // integers for x, y, flag.
-    static const size_t block_object = sizeof(int)*3;
     static const int width = 6;
     static const int height = 6;
     static int blocks[width*height][3];
@@ -340,7 +337,7 @@ void game_breakout()
         
     }
     
-    if (dead) goto DEAD; /* I am a special kind of lazy */
+    if (dead) goto DEAD; /* because im lazy */
     
     for (int i = 0; i < width*height; i++)
     {
@@ -445,7 +442,6 @@ void game_breakout()
         
     }
     
-    // DrawText(FormatText("VX: %.2f VY: %.2f", bvel_x, bvel_y), 10, 475, 20, GREEN);
     DrawText(FormatText("Score: %d", score), 150, 475, 40, GREEN);
     DrawRectangle(ball_x, ball_y, 20, 20, (Color){0, 255, 255, 255});
     DrawRectangle(paddle_x, 450, paddle_width, 15, WHITE);
@@ -457,8 +453,6 @@ void game_breakout()
         DrawText("R to restart", 100, 250, 40, GREEN);
         DrawText("Q to exit", 100, 300, 40, GREEN);
     }
-    
-    // DrawText("PLAYING BREAKOUT", 50, 150, 40, (Color){0, 255, 255, 255});
 }
 
 int main(int argc, char** argv)
@@ -552,7 +546,6 @@ int main(int argc, char** argv)
                 m = MatrixMultiply(m, MatrixRotateX(rx*DEG2RAD));
                 m = MatrixMultiply(m, MatrixRotateZ(rz*DEG2RAD));
                 cabinet_joystick.transform = m;
-                // DrawModel(cabinet_joystick, (Vector3){-0.002223, 2.79611, -0.690871}, 1.f, WHITE);
                 DrawModel(cabinet_joystick, (Vector3){-0.002223, 2.79611, 0.690871}, 1.f, WHITE);
                 
                 m = MatrixIdentity();
