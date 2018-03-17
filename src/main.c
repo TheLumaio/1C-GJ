@@ -17,7 +17,9 @@
 #define BO_FLAG 2
 
 static Model cabinet_model;
+static Model cabinet_joystick;
 static Model cabinet_screen;
+
 static RenderTexture2D cabinet_target;
 static RenderTexture2D cabinet_buffer;
 static int current_game = GAME_LIST;
@@ -481,15 +483,20 @@ int main(int argc, char** argv)
     
     SetMousePosition((Vector2){0, 0});
     
+    Shader light = LoadShader("assets/light.vs", "assets/light.fs");
+    light.locs[LOC_MATRIX_MODEL] = GetShaderLocation(light, "modelMatrix");
+    
     cabinet_model = LoadModel("assets/cabinet2.obj");
     cabinet_model.material.maps[MAP_DIFFUSE].texture = LoadTexture("assets/Cabinet2.png");
-    cabinet_model.material.shader = LoadShader("assets/light.vs", "assets/light.fs");
-    cabinet_model.material.shader.locs[LOC_MATRIX_MODEL] = GetShaderLocation(cabinet_model.material.shader, "modelMatrix");
+    cabinet_model.material.shader = light;
+    
+    cabinet_joystick = LoadModel("assets/joystick.obj");
+    cabinet_joystick.material.maps[MAP_DIFFUSE].texture = LoadTexture("assets/Joystick.png");
+    cabinet_joystick.material.shader = light;
     
     Mesh cabinet_mesh = GenMeshPlane(1.663860, 1.275940, 1, 1);
     cabinet_screen = LoadModelFromMesh(cabinet_mesh);
     cabinet_screen.material.shader = LoadShader("assets/light.vs", NULL);
-    cabinet_screen.material.shader.locs[LOC_MATRIX_MODEL] = GetShaderLocation(cabinet_screen.material.shader, "modelMatrix");
     
     cabinet_target = LoadRenderTexture(512, 512);
     SetTextureFilter(cabinet_target.texture, FILTER_POINT);
@@ -545,7 +552,21 @@ int main(int argc, char** argv)
             Begin3dMode(camera);
                 DrawModel(cabinet_model, (Vector3){0, 0, 0}, 1.f, WHITE);
                 
+                float rx = 0;
+                float rz = 0;
+                if (IsKeyDown(KEY_UP)) rx = 5;
+                else if (IsKeyDown(KEY_DOWN)) rx = -5;
+                if (IsKeyDown(KEY_LEFT)) rz = -5;
+                else if (IsKeyDown(KEY_RIGHT)) rz = 5;
+                
                 Matrix m = MatrixIdentity();
+                m = MatrixMultiply(m, MatrixRotateX(rx*DEG2RAD));
+                m = MatrixMultiply(m, MatrixRotateZ(rz*DEG2RAD));
+                cabinet_joystick.transform = m;
+                // DrawModel(cabinet_joystick, (Vector3){-0.002223, 2.79611, -0.690871}, 1.f, WHITE);
+                DrawModel(cabinet_joystick, (Vector3){-0.002223, 2.79611, 0.690871}, 1.f, WHITE);
+                
+                m = MatrixIdentity();
                 m = MatrixMultiply(m, MatrixRotateX(19.6*DEG2RAD));
                 m = MatrixMultiply(m, MatrixRotateY(180*DEG2RAD));
                 cabinet_screen.transform = m;
