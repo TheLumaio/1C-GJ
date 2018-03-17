@@ -6,12 +6,15 @@
 #include <raylib.h>
 #include <raymath.h>
 
-enum {
-    GAME_LIST=-1,
-    GAME_ASTEROIDS,
-    GAME_SNAKE,
-    GAME_BREAKOUT
-};
+
+#define GAME_LIST      -1
+#define GAME_ASTEROIDS  0
+#define GAME_SNAKE      1
+#define GAME_BREAKOUT   2
+
+#define BO_X    0
+#define BO_Y    1
+#define BO_FLAG 2
 
 static Model cabinet_model;
 static Model cabinet_screen;
@@ -19,6 +22,27 @@ static RenderTexture2D cabinet_target;
 static RenderTexture2D cabinet_buffer;
 static int current_game = GAME_LIST;
 static bool playing = false;
+
+bool check_collide(float x1, float y1, float w1, float h1, float x2, float y2, float w2, float h2)
+{
+    bool c = false;
+    float dx = fabs((x1+w1/2.f) - (x2+w2/2.f));
+    float dy = fabs((y1+h1/2.f) - (y2+h2/2.f));
+    if ((dx <= (w1/2.f + w2/2.f)) && ((dy <= (h1/2.f + h2/2.f)))) c = true;
+    return c;
+}
+
+void normalize(float* x, float* y)
+{
+    float l = sqrtf((*x)*(*x) + (*y)*(*y)); // oh god
+    *x = (*x)/l;
+    *y = (*y)/l;
+}
+
+float dot(float x1, float y1, float x2, float y2)
+{
+    return x1*x2+y1*y2;
+}
 
 void game_list()
 {
@@ -200,7 +224,7 @@ void game_snake()
         
     }
     
-    if (need_update)
+    if (need_update && !dead)
     {
         if (board[head_x][head_y] == 1) {
             grow = grow_amount;
@@ -263,20 +287,199 @@ void game_snake()
 
 void game_breakout()
 {
+    static bool breakout_initalized = false;
+    // integers for x, y, flag.
+    static const size_t block_object = sizeof(int)*3;
+    static const int width = 6;
+    static const int height = 6;
+    static int blocks[width*height][3];
+    static float ball_x;
+    static float ball_y;
+    static float bvel_x;
+    static float bvel_y;
+    static int paddle_width;
+    static float paddle_x;
+    static bool stuck;
+    static bool dead = false;
+    static int difficulty = 1;
+    static int score;
+    static int blocks_left;
+    
+    if (!breakout_initalized) {
+        ball_x = 0;
+        ball_y = 0;
+        paddle_width = 100;
+        paddle_x = 256-paddle_width/2;
+        stuck = true;
+        bvel_x = 0;
+        bvel_y = 100;
+        dead = false;
+        blocks_left = width*height;
+        
+        for (int i = 0; i < width*height; i++) {
+            int a = i%width;
+            int b = i/width;
+            
+            blocks[i][BO_X]    = 75+a*60; // X
+            blocks[i][BO_Y]    = 75+b*20; // Y
+            blocks[i][BO_FLAG] = 1+rand()%difficulty; // FLAG (number of hits required to break)
+        }
+        
+        breakout_initalized = true;
+    }
+    
     if (playing) {
         if (IsKeyPressed(KEY_Q))
             current_game = GAME_LIST;
+        
+        if (!dead) {
+            if (IsKeyDown(KEY_LEFT))
+                paddle_x -= 300*GetFrameTime();
+            if (IsKeyDown(KEY_RIGHT))
+                paddle_x += 300*GetFrameTime();
+            if (IsKeyPressed(KEY_SPACE) && stuck)
+                stuck = false;
+        } else {
+            if (IsKeyPressed(KEY_R)) {
+                breakout_initalized = false;
+                difficulty = 1;
+                score = 0;
+            }
+        }
+        
     }
-    DrawText("PLAYING BREAKOUT", 50, 150, 40, (Color){0, 255, 255, 255});
+    
+    if (dead) goto DEAD; /* I am a special kind of lazy */
+    
+    for (int i = 0; i < width*height; i++)
+    {
+        if (blocks[i][BO_FLAG] == 0) continue;
+        int f = blocks[i][BO_FLAG];
+        Color c = WHITE;
+        if (f == 2) c = GREEN;
+        if (f == 3) c = BLUE;
+        if (f == 4) c = YELLOW;
+        DrawRectangle(blocks[i][BO_X], blocks[i][BO_Y], 55, 15, c);
+    }
+    
+    if (stuck) {
+        ball_x = paddle_x+paddle_width/2-10;
+        ball_y = 450-20;
+    } else {
+        if (bvel_x > 300) bvel_x = 300;
+        if (bvel_y > 300) bvel_y = 300;
+        if (bvel_x < -300) bvel_x = -300;
+        if (bvel_y < -300) bvel_y = -300;
+        
+        ball_x += bvel_x*GetFrameTime();
+        ball_y += bvel_y*GetFrameTime();
+        
+        /* Edge collision detection */
+        if (ball_x < 0) {
+            bvel_x = -bvel_x;
+            ball_x = 0;
+        }
+        if (ball_x+20 > 512) {
+            bvel_x = -bvel_x;
+            ball_x = 512-20;
+        }
+        if (ball_y < 0) {
+            bvel_y = -bvel_y;
+            ball_y = 0;
+        }
+        if (ball_y+20 > 512) {
+            dead = true;
+            goto DEAD;
+        }
+        
+        /* Paddle collision detection */
+        bool c_paddle = false;
+        c_paddle = check_collide(ball_x, ball_y, 20, 20, paddle_x, 450, paddle_width, 15);
+        if (c_paddle) {
+            if (bvel_x < 0) bvel_x -= 50;
+            else bvel_x += 50;
+            if (bvel_y < 0) bvel_y -= 50;
+            else bvel_y += 50;
+            
+            
+            bvel_y = -bvel_y;
+            if (bvel_x == 0) bvel_x = 100;
+            if (ball_x+10 < paddle_x+paddle_width/2)
+                bvel_x = -fabs(bvel_x);
+            else
+                bvel_x = fabs(bvel_x);
+            
+            if (ball_y < 450)
+                ball_y = 450-20;
+            else
+                ball_y = 450;
+        }
+        
+        /* Block collision detection */
+        float dx = ball_x+10;
+        float dy = ball_y+10;
+        
+        for (int i = 0; i < width*height; i++)
+        {
+            if (blocks[i][BO_FLAG] == 0) continue;
+            int x = blocks[i][BO_X];
+            int y = blocks[i][BO_Y];
+            
+            if (check_collide(x, y, 55, 15, ball_x, ball_y, 20, 20)) {
+                blocks[i][BO_FLAG]--;
+                if (blocks[i][BO_FLAG] == 0) {
+                    blocks_left--;
+                    score++;
+                }
+                if (dy < y || dy > y+15) {
+                    bvel_y = -bvel_y;
+                    break;
+                }
+                if (dx < x || dx > x+55) {
+                    bvel_x = -bvel_x;
+                    break;
+                }
+                break;
+            }
+            
+        }
+        
+        if (blocks_left == 0) {
+            stuck = true;
+            bvel_x = 0;
+            bvel_y = 100;
+            if (difficulty < 4) difficulty++;
+            breakout_initalized = false;
+        }
+        
+    }
+    
+    // DrawText(FormatText("VX: %.2f VY: %.2f", bvel_x, bvel_y), 10, 475, 20, GREEN);
+    DrawText(FormatText("Score: %d", score), 150, 475, 40, GREEN);
+    DrawRectangle(ball_x, ball_y, 20, 20, (Color){0, 255, 255, 255});
+    DrawRectangle(paddle_x, 450, paddle_width, 15, WHITE);
+    
+    DEAD:
+    if (dead) {
+        DrawText("You died", 100, 150, 40, RED);
+        DrawText(FormatText("Score: %d", score), 100, 200, 40, RED);
+        DrawText("R to restart", 100, 250, 40, GREEN);
+        DrawText("Q to exit", 100, 300, 40, GREEN);
+    }
+    
+    // DrawText("PLAYING BREAKOUT", 50, 150, 40, (Color){0, 255, 255, 255});
 }
 
 int main(int argc, char** argv)
 {
     srand(time(NULL));
     
+    
     InitWindow(640, 480, "1 Class Jam");
     SetTargetFPS(60);
     SetExitKey(KEY_F12);
+    
+    SetMousePosition((Vector2){0, 0});
     
     cabinet_model = LoadModel("assets/cabinet2.obj");
     cabinet_model.material.maps[MAP_DIFFUSE].texture = LoadTexture("assets/Cabinet2.png");
@@ -294,7 +497,7 @@ int main(int argc, char** argv)
     cabinet_buffer = LoadRenderTexture(512, 512);
     SetTextureFilter(cabinet_buffer.texture, FILTER_POINT);
     
-    Camera camera = (Camera){{0.f, 3.6f, 1.f}, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f}, 90.f};
+    Camera camera = (Camera){{3.f, 3.6f, 3.f}, {0.f,3.f, 0.f}, {0.f, 1.f, 0.f}, 90.f};
     SetCameraMode(camera, CAMERA_FIRST_PERSON);
     
     while (!WindowShouldClose())
@@ -357,6 +560,7 @@ int main(int argc, char** argv)
     UnloadModel(cabinet_screen);
     UnloadRenderTexture(cabinet_target);
     UnloadRenderTexture(cabinet_buffer);
+    
     CloseWindow();
     
     return 0;
