@@ -14,8 +14,8 @@ ifeq ($(OS),Windows_NT)
 	LIBS = -lraylib -lopengl32 -lgdi32
 else
 	OUT = $(NAME)
-	CC += gcc
-	LIBS = 
+	CC += clang
+	LIBS = -lraylib -lglfw3 -lGL -lXxf86vm -lXext -lX11 -lXrandr -lXinerama -lXcursor -lm -lpthread -ldl 
 endif
 
 all: $(OUT)
