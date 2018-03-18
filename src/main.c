@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 
 #include <raylib.h>
 #include <raymath.h>
@@ -29,6 +30,11 @@
 #define CITY_X    0
 #define CITY_FLAG 1
 
+// scores
+#define SCORE_SNAKE    0
+#define SCORE_BREAKOUT 1
+#define SCORE_MISSILES 2
+
 static Model cabinet_model;
 static Model cabinet_joystick;
 static Model cabinet_screen;
@@ -38,6 +44,28 @@ static RenderTexture2D cabinet_target;
 static RenderTexture2D cabinet_buffer;
 static int current_game = GAME_LIST;
 static bool playing = false;
+
+static int highscores[3] = {0};
+
+void dump_scores()
+{
+    FILE* f = fopen("scores", "w");
+    for (int i = 0; i < 3; i++)
+        fprintf(f, "%d\n", highscores[i]);
+    fclose(f);
+}
+
+void read_scores()
+{
+    char* t = LoadText("scores");
+    char* s = strtok(t, "\n");
+    int i = 0;
+    while (s) {
+        highscores[i] = atoi(s);
+        s = strtok(NULL, "\n");
+        i++;
+    }
+}
 
 bool check_collide(float x1, float y1, float w1, float h1, float x2, float y2, float w2, float h2)
 {
@@ -86,10 +114,11 @@ void game_scores()
             current_game = GAME_LIST;
     }
     
-    int tw = MeasureText("OUT OF ORDER", 40);
-    int nw = MeasureText("Q TO RETURN", 40);
-    DrawText("OUT OF ORDER", floor(256-tw/2), 250, 40, RED);
-    DrawText("Q TO RETURN", floor(256-nw/2), 300, 40, RED);
+    DrawText(FormatText("Snake: %d", highscores[SCORE_SNAKE]), 150, 200, 40, WHITE);
+    DrawText(FormatText("Breakout: %d", highscores[SCORE_BREAKOUT]), 150, 200+50, 40, WHITE);
+    DrawText(FormatText("Missiles: %d", highscores[SCORE_MISSILES]), 150, 200+50+50, 40, WHITE);
+    
+    DrawText("Q TO RETURN", 50, 400, 40, GREEN);
 }
 
 void game_snake()
@@ -181,6 +210,10 @@ void game_snake()
             if (head_x<0||head_x>15||head_y<0||head_y>15 || (need_update && board[head_x][head_y] > 1)) {
                 printf("SNEK DED\n");
                 dead = true;
+                if (score > highscores[SCORE_SNAKE]) {
+                    highscores[SCORE_SNAKE] = score;
+                    dump_scores();
+                }
             }
         } else {
             if (IsKeyPressed(KEY_R))
@@ -194,12 +227,20 @@ void game_snake()
             case 'n':
                 if (head_y-1<0) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 board[head_x][head_y] = 'n';
                 head_y--;
                 if (board[head_x][head_y] > 1) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 need_update = true;
@@ -207,12 +248,20 @@ void game_snake()
             case 'e':
                 if (head_x+1>15) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 board[head_x][head_y] = 'e';
                 head_x++;
                 if (board[head_x][head_y] > 1) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 need_update = true;
@@ -220,12 +269,20 @@ void game_snake()
             case 's':
                 if (head_y+1>15) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 board[head_x][head_y] = 's';
                 head_y++;
                 if (board[head_x][head_y] > 1) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 need_update = true;
@@ -233,12 +290,20 @@ void game_snake()
             case 'w':
                 if (head_x-1<0) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 board[head_x][head_y] = 'w';
                 head_x--;
                 if (board[head_x][head_y] > 1) {
                     dead = true;
+                    if (score > highscores[SCORE_SNAKE]) {
+                        highscores[SCORE_SNAKE] = score;
+                        dump_scores();
+                    }
                     break;
                 }
                 need_update = true;
@@ -411,6 +476,10 @@ void game_breakout()
         }
         if (ball_y+20 > 512) {
             dead = true;
+            if (score > highscores[SCORE_BREAKOUT]) {
+                highscores[SCORE_BREAKOUT] = score;
+                dump_scores();
+            }
             goto B_DEAD;
         }
         
@@ -708,6 +777,10 @@ void game_missiles()
     
     if (cities_left == 0) {
         dead = true;
+        if (score > highscores[SCORE_MISSILES]) {
+            highscores[SCORE_MISSILES] = score;
+            dump_scores();
+        }
         goto M_DEAD;
     }
     
@@ -731,6 +804,7 @@ int main(int argc, char** argv)
 {
     srand(time(NULL));
     
+    read_scores();
     
     InitWindow(640, 480, "1 Class Jam");
     SetTargetFPS(60);
