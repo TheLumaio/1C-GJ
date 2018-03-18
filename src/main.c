@@ -6,16 +6,28 @@
 #include <raylib.h>
 #include <raymath.h>
 
-
-
 #define GAME_LIST      -1
-#define GAME_ASTEROIDS  0
+#define GAME_SCORES     0
 #define GAME_SNAKE      1
 #define GAME_BREAKOUT   2
+#define GAME_MISSILES   3
 
+// breakout
 #define BO_X    0
 #define BO_Y    1
 #define BO_FLAG 2
+
+// missile commander
+#define MISSILE_X     0
+#define MISSILE_Y     1
+#define MISSILE_TOX   2
+#define MISSILE_FLAG  3
+#define MISSILE_SPEED 4
+#define MISSILE_FROMX 5
+#define MISSILE_TOY   6
+
+#define CITY_X    0
+#define CITY_FLAG 1
 
 static Model cabinet_model;
 static Model cabinet_joystick;
@@ -36,35 +48,48 @@ bool check_collide(float x1, float y1, float w1, float h1, float x2, float y2, f
     return c;
 }
 
+float distance(float x1, float y1, float x2, float y2)
+{
+    return sqrt(pow(x2-x1,2)+pow(y2-y1,2));
+}
+
 void game_list()
 {
     static int selection = 0;
     /* Instead of wrapping updates in a separate function I just check if you're playing in each game update */
     if (playing) {
         if (IsKeyPressed(KEY_DOWN))
-            selection = (selection+1)%3;
+            selection = (selection+1)%4;
         if (IsKeyPressed(KEY_UP)) {
             selection--;
-            if (selection < 0) selection = 2;
+            if (selection < 0) selection = 3;
         }
         if (IsKeyPressed(KEY_ENTER))
             current_game = selection;
     }
     
-    DrawRectangle(100, 150+selection*40, 300, 40, GRAY);
+    DrawRectangle(100, 150+selection*40, 300, 40, BLACK);
+    DrawRectangleLines(100, 150+selection*40, 300, 40, WHITE);
+    DrawRectangleLines(100-1, 150+selection*40-1, 300+2, 40+2, WHITE);
+    DrawRectangleLines(100-2, 150+selection*40-2, 300+4, 40+4, WHITE);
     
-    DrawText("ASTEROIDS", 100, 150, 40, GREEN);
+    DrawText("HIGHSCORES", 100, 150, 40, GREEN);
     DrawText("SNAKE", 100, 150+40, 40, GREEN);
     DrawText("BREAKOUT", 100, 150+40+40, 40, GREEN);
+    DrawText("MISSILES", 100, 150+40+40+40, 40, GREEN);
 }
 
-void game_asterioids()
+void game_scores()
 {
     if (playing) {
         if (IsKeyPressed(KEY_Q))
             current_game = GAME_LIST;
     }
-    DrawText("PLAYING ASTEROIDS", 50, 150, 40, (Color){0, 255, 255, 255});
+    
+    int tw = MeasureText("OUT OF ORDER", 40);
+    int nw = MeasureText("Q TO RETURN", 40);
+    DrawText("OUT OF ORDER", floor(256-tw/2), 250, 40, RED);
+    DrawText("Q TO RETURN", floor(256-nw/2), 300, 40, RED);
 }
 
 void game_snake()
@@ -338,7 +363,7 @@ void game_breakout()
         
     }
     
-    if (dead) goto DEAD; /* because im lazy */
+    if (dead) goto B_DEAD; /* because im lazy */
     
     for (int i = 0; i < width*height; i++)
     {
@@ -378,7 +403,7 @@ void game_breakout()
         }
         if (ball_y+20 > 512) {
             dead = true;
-            goto DEAD;
+            goto B_DEAD;
         }
         
         /* Paddle collision detection */
@@ -447,13 +472,241 @@ void game_breakout()
     DrawRectangle(ball_x, ball_y, 20, 20, (Color){0, 255, 255, 255});
     DrawRectangle(paddle_x, 450, paddle_width, 15, WHITE);
     
-    DEAD:
+    B_DEAD:
     if (dead) {
         DrawText("You died", 100, 150, 40, RED);
         DrawText(FormatText("Score: %d", score), 100, 200, 40, RED);
         DrawText("R to restart", 100, 250, 40, GREEN);
         DrawText("Q to exit", 100, 300, 40, GREEN);
     }
+}
+
+void game_missiles()
+{
+    static bool missiles_initialized = false;
+    static float missiles[12][6]; // x y bx f s a
+    static float rockets[8][7]; // x y bx f s a
+    static int difficulty = 0;
+    static float cursor_x = 512/2;
+    static float cursor_y = 512/2;
+    static int cities[3][2]; // x f
+    static float spawn_timer = 5;
+    static const int city_width = 75;
+    static int rockets_left = 0;
+    static bool new_wave = false;
+    static int spawn_rockets = 0;
+    static int score = 0;
+    static bool dead = false;
+    
+    if (!missiles_initialized) {
+        cities[0][CITY_X] = 512/2-512/3;
+        cities[1][CITY_X] = 512/2;
+        cities[2][CITY_X] = 512/2+512/3;
+        cities[0][CITY_FLAG] = 1;
+        cities[1][CITY_FLAG] = 1;
+        cities[2][CITY_FLAG] = 1;
+        
+        new_wave = false;
+        dead = false;
+        
+        spawn_timer = 5;
+        spawn_rockets = 0;
+        rockets_left = 0;
+        score = 0;
+        for (int i = 0; i < 12; i++)
+            for (int j = 0; j < 6; j++)
+                missiles[i][j] = 0;
+        for (int i = 0; i < 8; i++)
+            for (int j = 0; j < 7; j++)
+                rockets[i][j] = 0;
+            
+        missiles_initialized = true;
+    }
+    
+    if (playing) {
+        if (IsKeyPressed(KEY_Q))
+            current_game = GAME_LIST;
+        
+        if (!dead) {
+            if (IsKeyDown(KEY_RIGHT))
+                cursor_x += 300*GetFrameTime();
+            if (IsKeyDown(KEY_LEFT))
+                cursor_x -= 300*GetFrameTime();
+            if (IsKeyDown(KEY_UP))
+                cursor_y -= 300*GetFrameTime();
+            if (IsKeyDown(KEY_DOWN))
+                cursor_y += 300*GetFrameTime();
+            
+            if (IsKeyPressed(KEY_SPACE)) {
+                for (int i = 0; i < 8; i++) {
+                    if (rockets[i][MISSILE_FLAG] == 0) {
+                        
+                        rockets[i][MISSILE_X] = 0;
+                        rockets[i][MISSILE_Y] = 450;
+                        if (cursor_x > 256)
+                            rockets[i][MISSILE_X] = 512;
+                        
+                        rockets[i][MISSILE_TOX] = cursor_x;
+                        rockets[i][MISSILE_TOY] = cursor_y;
+                        
+                        rockets[i][MISSILE_FLAG] = 1;
+                        rockets[i][MISSILE_SPEED] = 400;
+                        rockets[i][MISSILE_FROMX] = rockets[i][MISSILE_X];
+                        
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if (dead) goto M_DEAD;
+    
+    if (new_wave && spawn_timer == 0) {
+        for (int i = 0; i < 3+difficulty; i++) {
+            missiles[i][MISSILE_X] = 20+rand()%(512-40);
+            missiles[i][MISSILE_Y] = 0;
+            
+            int c = 0;
+            while (cities[c][CITY_FLAG] < 1)
+                c = rand()%3; // choose a city to fire at
+            
+            int a = (cities[c][CITY_X]-city_width/2)+rand()%city_width; // create an offset
+            float r = atan2(450, a-missiles[i][0]);
+            missiles[i][MISSILE_TOX] = a;
+            missiles[i][MISSILE_FLAG] = 1;
+            missiles[i][MISSILE_SPEED] = 25+rand()%50;
+            missiles[i][MISSILE_FROMX] = missiles[i][MISSILE_X];
+        }
+        rockets_left = 3+difficulty+2;
+        new_wave = false;
+    }
+    
+    if (spawn_timer > 0) {
+        DrawText(FormatText("Spawning in: %.0f", spawn_timer), 125, 200, 40, WHITE);
+        spawn_timer -= GetFrameTime();
+    } else if (spawn_timer < 0) {
+        spawn_timer = 0;
+        new_wave = true;
+    }
+    
+    for (int i = 0; i < 8; i++) {
+        if (rockets[i][MISSILE_FLAG] == 1) {
+            float r = atan2(rockets[i][MISSILE_TOY]-rockets[i][MISSILE_Y], rockets[i][MISSILE_TOX]-rockets[i][MISSILE_X]);
+            rockets[i][MISSILE_X] += cos(r)*rockets[i][MISSILE_SPEED]*GetFrameTime();
+            rockets[i][MISSILE_Y] += sin(r)*rockets[i][MISSILE_SPEED]*GetFrameTime();
+            
+            float d = distance(rockets[i][MISSILE_X], rockets[i][MISSILE_Y], rockets[i][MISSILE_TOX], rockets[i][MISSILE_TOY]);
+            if (d < 4) {
+                rockets[i][MISSILE_FLAG] = 2;
+            }
+            DrawLine(rockets[i][MISSILE_FROMX], 450, rockets[i][MISSILE_X], rockets[i][MISSILE_Y], GREEN);
+        } else if (rockets[i][MISSILE_FLAG] > 1) {
+            rockets[i][MISSILE_FLAG] += 50*GetFrameTime();
+            float d = rockets[i][MISSILE_FLAG];
+            if (rockets[i][MISSILE_FLAG] > 30)
+                d = 30-(rockets[i][MISSILE_FLAG]-30);
+            if (d < 0) {
+                d = 0;
+                rockets[i][MISSILE_FLAG] = 0;
+            }
+            DrawCircle(rockets[i][MISSILE_X], rockets[i][MISSILE_Y], d, GREEN);
+        }
+    }
+    
+    int missiles_left = 0;
+    for (int i = 0; i < 12; i++) {
+        if (missiles[i][MISSILE_FLAG] == 1) {
+            float r = atan2(450-missiles[i][MISSILE_Y], missiles[i][MISSILE_TOX]-missiles[i][MISSILE_X]);
+            missiles[i][MISSILE_X] += cos(r)*missiles[i][MISSILE_SPEED]*GetFrameTime();
+            missiles[i][MISSILE_Y] += sin(r)*missiles[i][MISSILE_SPEED]*GetFrameTime();
+            float x=missiles[i][MISSILE_X],y=missiles[i][MISSILE_Y];
+            
+            for (int j = 0; j < 8; j++) {
+                if (rockets[j][MISSILE_FLAG] > 2) {
+                    float d = rockets[j][MISSILE_FLAG];
+                    if (rockets[j][MISSILE_FLAG] > 30)
+                        d = 30-(rockets[j][MISSILE_FLAG]-30);
+                    if (distance(missiles[i][MISSILE_X], missiles[i][MISSILE_Y], rockets[j][MISSILE_X], rockets[j][MISSILE_Y]) < d) {
+                        missiles[i][MISSILE_FLAG] = 2;
+                        score++;
+                    }
+                }
+            }
+            
+            for (int j = 0; j < 12; j++) {
+                if (i == j) continue;
+                if (missiles[j][MISSILE_FLAG] > 2) {
+                    float d = missiles[j][MISSILE_FLAG];
+                    if (missiles[j][MISSILE_FLAG] > 30)
+                        d = 30-(missiles[j][MISSILE_FLAG]-30);
+                    if (distance(missiles[i][MISSILE_X], missiles[i][MISSILE_Y], missiles[j][MISSILE_X], missiles[j][MISSILE_Y]) < d) {
+                        missiles[i][MISSILE_FLAG] = 2;
+                        score++;
+                    }
+                }
+            }
+            
+            for (int j=0; j < 3; j++) {
+                int a=cities[j][0],b=450;
+                if (x > a-city_width/2 && x < a+city_width/2 && y > b && y < b+15) {
+                    cities[j][CITY_FLAG] = 0;
+                    missiles[i][MISSILE_FLAG] = 0;
+                    score--;
+                }
+            }
+            
+            DrawLine(missiles[i][MISSILE_FROMX], 0, missiles[i][MISSILE_X], missiles[i][MISSILE_Y], RED);
+        } else if (missiles[i][MISSILE_FLAG] > 1) {
+            missiles[i][MISSILE_FLAG] += 50*GetFrameTime();
+            float d = missiles[i][MISSILE_FLAG];
+            if (missiles[i][MISSILE_FLAG] > 30)
+                d = 30-(missiles[i][MISSILE_FLAG]-30);
+            if (d < 0) {
+                d = 0;
+                missiles[i][MISSILE_FLAG] = 0;
+            }
+            DrawCircle(missiles[i][MISSILE_X], missiles[i][MISSILE_Y], d, RED);
+        }
+        if (missiles[i][MISSILE_FLAG] > 0) {
+            missiles_left++;
+        }
+    }
+    
+    if (missiles_left == 0 && !new_wave) {
+        new_wave = true;
+        if (difficulty < 9)
+            difficulty++;
+    }
+    
+    int cities_left = 0;
+    for (int i = 0; i < 3; i++) {
+        if (cities[i][CITY_FLAG] == 1) {
+            DrawRectangle(cities[i][CITY_X]-city_width/2, 450, city_width, 15, BLUE);
+            cities_left++;
+        }
+    }
+    
+    if (score < 0) score = 0;
+    
+    if (cities_left == 0) {
+        dead = true;
+        goto M_DEAD;
+    }
+    
+    DrawRectangle(cursor_x-1, cursor_y-10, 3, 8, WHITE);
+    DrawRectangle(cursor_x-10, cursor_y-1, 8, 3, WHITE);
+    DrawRectangle(cursor_x-1, cursor_y+2, 3, 8, WHITE);
+    DrawRectangle(cursor_x+2, cursor_y-1, 8, 3, WHITE);
+    
+    M_DEAD:
+    if (dead) {
+        DrawText("You died", 100, 150, 40, RED);
+        DrawText(FormatText("Score: %d", score), 100, 200, 40, RED);
+        DrawText("R to restart", 100, 250, 40, GREEN);
+        DrawText("Q to exit", 100, 300, 40, GREEN);
+    }
+    
+    // DrawText("PLAYING MISSILES", 50, 150, 40, (Color){0, 255, 255, 255});
 }
 
 int main(int argc, char** argv)
@@ -491,16 +744,23 @@ int main(int argc, char** argv)
     camera = (Camera){{3.f, 3.6f, 3.f}, {0.f,3.f, 0.f}, {0.f, 1.f, 0.f}, 90.f};
     SetCameraMode(camera, CAMERA_FIRST_PERSON);
     
+    int temp_x,temp_y;
+    
     while (!WindowShouldClose())
     {
         if (!playing) {
-            if (IsKeyPressed(KEY_E)) 
+            if (IsKeyPressed(KEY_E)) {
                 playing = true;
+                temp_x = GetMouseX();
+                temp_y = GetMouseY();
+            }
             else /* Because of a minor graphical bug */
                 UpdateCamera(&camera);
         } else {
-            if (IsKeyPressed(KEY_ESCAPE))
+            if (IsKeyPressed(KEY_ESCAPE)) {
                 playing = false;
+                SetMousePosition((Vector2){temp_x, temp_y});
+            }
         }
         
         BeginDrawing();
@@ -514,14 +774,17 @@ int main(int argc, char** argv)
                     case GAME_LIST:
                         game_list();
                         break;
-                    case GAME_ASTEROIDS:
-                        game_asterioids();
+                    case GAME_SCORES:
+                        game_scores();
                         break;
                     case GAME_SNAKE:
                         game_snake();
                         break;
                     case GAME_BREAKOUT:
                         game_breakout();
+                        break;
+                    case GAME_MISSILES:
+                        game_missiles();
                         break;
                     default:
                         break;
@@ -538,9 +801,9 @@ int main(int argc, char** argv)
                 
                 float rx = 0;
                 float rz = 0;
-                if (IsKeyDown(KEY_UP)) rx = 5;
-                else if (IsKeyDown(KEY_DOWN)) rx = -5;
-                if (IsKeyDown(KEY_LEFT)) rz = -5;
+                if (IsKeyDown(KEY_UP))         rx = 5;
+                else if (IsKeyDown(KEY_DOWN))  rx = -5;
+                if (IsKeyDown(KEY_LEFT))       rz = -5;
                 else if (IsKeyDown(KEY_RIGHT)) rz = 5;
                 
                 Matrix m = MatrixIdentity();
