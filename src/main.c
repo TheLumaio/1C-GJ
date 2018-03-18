@@ -537,7 +537,7 @@ void game_missiles()
             if (IsKeyDown(KEY_DOWN))
                 cursor_y += 300*GetFrameTime();
             
-            if (IsKeyPressed(KEY_SPACE)) {
+            if (IsKeyPressed(KEY_SPACE) && rockets_left > 0) {
                 for (int i = 0; i < 8; i++) {
                     if (rockets[i][MISSILE_FLAG] == 0) {
                         
@@ -552,6 +552,8 @@ void game_missiles()
                         rockets[i][MISSILE_FLAG] = 1;
                         rockets[i][MISSILE_SPEED] = 400;
                         rockets[i][MISSILE_FROMX] = rockets[i][MISSILE_X];
+                        
+                        rockets_left--;
                         
                         break;
                     }
@@ -574,7 +576,7 @@ void game_missiles()
             float r = atan2(450, a-missiles[i][0]);
             missiles[i][MISSILE_TOX] = a;
             missiles[i][MISSILE_FLAG] = 1;
-            missiles[i][MISSILE_SPEED] = 25+rand()%50;
+            missiles[i][MISSILE_SPEED] = 25+rand()%(50*((difficulty+1)/2));
             missiles[i][MISSILE_FROMX] = missiles[i][MISSILE_X];
         }
         rockets_left = 3+difficulty+2;
@@ -587,6 +589,9 @@ void game_missiles()
     } else if (spawn_timer < 0) {
         spawn_timer = 0;
         new_wave = true;
+    } else {
+        DrawText(FormatText("Score: %d\n", score), 125, 200, 40, DARKGRAY);
+        DrawText(FormatText("Rockets: %d\n", rockets_left), 125, 250, 40, DARKGRAY);
     }
     
     for (int i = 0; i < 8; i++) {
