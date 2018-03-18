@@ -509,6 +509,7 @@ void game_missiles()
         new_wave = false;
         dead = false;
         
+        difficulty = 0;
         spawn_timer = 5;
         spawn_rockets = 0;
         rockets_left = 0;
@@ -528,6 +529,7 @@ void game_missiles()
             current_game = GAME_LIST;
         
         if (!dead) {
+            
             if (IsKeyDown(KEY_RIGHT))
                 cursor_x += 300*GetFrameTime();
             if (IsKeyDown(KEY_LEFT))
@@ -537,7 +539,7 @@ void game_missiles()
             if (IsKeyDown(KEY_DOWN))
                 cursor_y += 300*GetFrameTime();
             
-            if (IsKeyPressed(KEY_SPACE) && rockets_left > 0) {
+            if (IsKeyPressed(KEY_SPACE) && rockets_left > 0 && spawn_timer == 0) {
                 for (int i = 0; i < 8; i++) {
                     if (rockets[i][MISSILE_FLAG] == 0) {
                         
@@ -559,6 +561,9 @@ void game_missiles()
                     }
                 }
             }
+        } else {
+            if (IsKeyPressed(KEY_R))
+                missiles_initialized = false;
         }
     }
     if (dead) goto M_DEAD;
@@ -568,7 +573,7 @@ void game_missiles()
             missiles[i][MISSILE_X] = 20+rand()%(512-40);
             missiles[i][MISSILE_Y] = 0;
             
-            int c = 0;
+            int c = rand()%3;
             while (cities[c][CITY_FLAG] < 1)
                 c = rand()%3; // choose a city to fire at
             
@@ -576,7 +581,7 @@ void game_missiles()
             float r = atan2(450, a-missiles[i][0]);
             missiles[i][MISSILE_TOX] = a;
             missiles[i][MISSILE_FLAG] = 1;
-            missiles[i][MISSILE_SPEED] = 25+rand()%(50*((difficulty+1)/2));
+            missiles[i][MISSILE_SPEED] = 25+rand()%(15*(difficulty+1));
             missiles[i][MISSILE_FROMX] = missiles[i][MISSILE_X];
         }
         rockets_left = 3+difficulty+2;
