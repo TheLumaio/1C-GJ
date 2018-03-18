@@ -128,7 +128,15 @@ void game_snake()
         for (int i = tail_x; i <= head_x; i++) {
             board[i][head_y] = 'e';
         }
-        board[rand()%16][rand()%16] = 1;
+        
+        int a=rand()%16;
+        int b=rand()%16;
+        while (board[a][b] != 0) {
+            a=rand()%16;
+            b=rand()%16;
+        }
+        board[a][b] = 1;
+        
         snake_initialized = true;
     }
     
